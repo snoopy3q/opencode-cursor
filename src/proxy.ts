@@ -670,6 +670,8 @@ export function updateProxyModels(
   }));
 }
 
+let inFlightStartProxy: Promise<number> | null = null;
+
 export async function startProxy(
   getAccessToken: () => Promise<string>,
   models: ReadonlyArray<{ id: string; name: string }> = [],
@@ -680,7 +682,21 @@ export async function startProxy(
     name: model.name,
   }));
   if (proxyServer && proxyPort) return proxyPort;
+  if (inFlightStartProxy) return inFlightStartProxy;
 
+  inFlightStartProxy = (async () => {
+    try {
+      if (proxyServer && proxyPort) return proxyPort;
+      return await doStartProxy();
+    } finally {
+      inFlightStartProxy = null;
+    }
+  })();
+
+  return inFlightStartProxy;
+}
+
+async function doStartProxy(): Promise<number> {
   // Initialize bridge pool for connection reuse
   if (BRIDGE_POOL_ENABLED && !bridgePool) {
     bridgePool = new BridgePool({

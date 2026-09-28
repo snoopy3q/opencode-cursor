@@ -7,7 +7,7 @@ import {
   DEFAULT_CONTEXT_WINDOW,
   DEFAULT_MAX_TOKENS,
 } from "../shared/constants.js";
-import { parseContextFromTooltip } from "./model-capabilities.js";
+import { inferKnownFamilyContext, parseContextFromTooltip } from "./model-capabilities.js";
 const z = tool.schema;
 
 const CursorModelDetailsSchema = z.object({
@@ -102,6 +102,8 @@ function normalizeSingleModel(model: unknown): CursorModel | null {
     parseContextFromTooltip(details.displayName) ??
     parseContextFromTooltip(details.displayNameShort) ??
     parseContextFromTooltip(id) ??
+    inferKnownFamilyContext(id) ??
+    inferKnownFamilyContext(details.displayName) ??
     DEFAULT_CONTEXT_WINDOW;
 
   return {

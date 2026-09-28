@@ -83,7 +83,50 @@ export function inferAvailableContextWindow(
   );
   if (fromDisplayName) return fromDisplayName;
 
+  const modelId = typeof model.name === "string" ? model.name : undefined;
+  const fromFamily = inferKnownFamilyContext(modelId);
+  if (fromFamily) return fromFamily;
+
   return DEFAULT_CONTEXT_WINDOW;
+}
+
+interface KnownFamilyRule {
+  pattern: RegExp;
+  contextTokens: number;
+}
+
+const KNOWN_FAMILY_RULES: readonly KnownFamilyRule[] = [
+  // Gemini 2M 特殊版本
+  { pattern: /^gemini-1\.5-pro\b/i, contextTokens: 2_000_000 },
+  // Gemini 官方标准 Flash / Pro 全系列在 Cursor 为 1M
+  { pattern: /^gemini-(?:2\.5|3|3\.\d+)-(?:flash|pro)\b/i, contextTokens: 1_000_000 },
+  { pattern: /^gemini\b/i, contextTokens: 1_000_000 },
+  // Kimi
+  { pattern: /^kimi-k3\b/i, contextTokens: 1_048_576 },
+  { pattern: /^kimi-k2\.7-code\b/i, contextTokens: 262_000 },
+  // GLM
+  { pattern: /^glm-5/i, contextTokens: 1_000_000 },
+  // GPT-5 / Codex-5
+  { pattern: /^(?:gpt|codex)-5/i, contextTokens: 272_000 },
+  // Grok 系列
+  { pattern: /^grok-/i, contextTokens: 256_000 },
+  // Claude 300k 系列 (Claude 4.7+, 5, Fable 5)
+  { pattern: /^claude-(?:fable-5|opus-(?:4\.[7-9]|5)|sonnet-5)/i, contextTokens: 300_000 },
+];
+
+/**
+ * Infer context window by model family when explicit metadata is absent (e.g. GetUsableModels).
+ * Normalizes provider prefixes (e.g. "cursor/") and case before matching.
+ */
+export function inferKnownFamilyContext(modelId: string | undefined): number | undefined {
+  if (!modelId) return undefined;
+  const normalized = modelId.trim().toLowerCase().replace(/^(?:cursor\/)/, "");
+  for (const rule of KNOWN_FAMILY_RULES) {
+    if (rule.pattern.test(normalized)) {
+      return rule.contextTokens;
+    }
+  }
+  return undefined;
 }
 
 export function buildInputModalities(supportsImages: boolean): string[] {
