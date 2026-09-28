@@ -3367,10 +3367,10 @@ async function testPostToolPreOutputStallBudget(
 }
 
 async function testOpenCodeV2SetupExport() {
-  console.log("[test] Testing OpenCode 2.0 Dual-Callable setup export...");
+  console.log("[test] Testing OpenCode 2.0 Plugin Object export...");
   const v2Export = (await import("../src/index.js")).default as any;
-  if (!v2Export || typeof v2Export !== "function") {
-    throw new Error("Expected default export to be callable for V1 backwards compatibility");
+  if (!v2Export || typeof v2Export !== "object") {
+    throw new Error("Expected default export to be an object for OpenCode 2.0 Schema compatibility");
   }
   if (v2Export.id !== "cursor") {
     throw new Error(`Expected v2Export.id to be 'cursor', got '${v2Export.id}'`);
@@ -3382,14 +3382,14 @@ async function testOpenCodeV2SetupExport() {
     throw new Error("Expected v2Export.server to be a function for V1 compatibility");
   }
 
-  // 1. Verify V1 compatibility: calling v2Export as a function directly
-  const v1Hooks = await v2Export({
+  // 1. Verify V1 compatibility: calling v2Export.server directly
+  const v1Hooks = await v2Export.server({
     directory: process.cwd(),
     project: { id: "test-proj" },
     client: {} as any,
   });
   if (!v1Hooks || typeof v1Hooks.config !== "function" || !v1Hooks.auth) {
-    throw new Error("Expected v2Export(input) to return standard V1 hooks");
+    throw new Error("Expected v2Export.server(input) to return standard V1 hooks");
   }
 
   // 2. Verify model alias transparency: no silent model rewriting
@@ -3436,11 +3436,15 @@ async function testOpenCodeV2SetupExport() {
     },
   };
 
+  let reloadCalled = false;
   const mockCtx = {
     provider: {
       transform: (fn: (providers: any) => void) => {
         transformCount++;
         fn(realEditorMock);
+      },
+      reload: async () => {
+        reloadCalled = true;
       },
     },
     session: {
@@ -3463,10 +3467,10 @@ async function testOpenCodeV2SetupExport() {
     throw new Error("Expected model.request and context hooks to be registered on ctx.session");
   }
 
-  // Wait briefly for background model discovery to trigger the second transform with Model.Info[]
+  // Wait briefly for background model discovery to trigger reload/transform with Model.Info[]
   await new Promise((r) => setTimeout(r, 200));
 
-  console.log("[test] OpenCode 2.0 Dual-Callable setup export OK");
+  console.log("[test] OpenCode 2.0 Plugin Object setup export OK");
 }
 
 // ---------------------------------------------------------------------------
